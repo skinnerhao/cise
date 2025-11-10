@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Logs
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build outputs
+backend/dist/
+frontend/.next/
+frontend/out/
+**/*.tsbuildinfo
+
+# Env files (keep examples)
+backend/.env
+frontend/.env.local
+
+# Misc
+.DS_Store
+Thumbs.db
+coverage/
