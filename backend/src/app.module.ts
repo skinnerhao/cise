@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { SubmissionsModule } from './submissions/submissions.module';
@@ -9,6 +10,7 @@ import { SearchModule } from './search/search.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot(),
     // 默认优先使用 IPv4 避免 ::1 解析导致连接问题
     MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/speed'),
     SubmissionsModule,
