@@ -1,0 +1,93 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "type": "npm",
+      "script": "dev",
+      "path": "frontend/package.json",
+      "group": "build",
+      "label": "启动前端服务",
+      "detail": "启动Next.js前端开发服务器",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "npm",
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*$",
+          "endsPattern": "✓ Ready in.*"
+        },
+        "pattern": {
+          "regexp": "^.*$"
+        }
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      }
+    },
+    {
+      "type": "npm",
+      "script": "dev",
+      "path": "backend/package.json",
+      "group": "build",
+      "label": "启动后端服务",
+      "detail": "启动NestJS后端开发服务器",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "npm",
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "^.*$",
+          "endsPattern": "Nest application successfully started"
+        },
+        "pattern": {
+          "regexp": "^.*$"
+        }
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared",
+        "showReuseMessage": true,
+        "clear": false
+      }
+    },
+    {
+      "label": "启动完整项目",
+      "dependsOrder": "parallel",
+      "dependsOn": ["启动前端服务", "启动后端服务"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
+    },
+    {
+      "type": "npm",
+      "script": "build",
+      "path": "frontend/package.json",
+      "group": "build",
+      "label": "构建前端",
+      "detail": "构建Next.js前端应用"
+    },
+    {
+      "type": "npm",
+      "script": "build",
+      "path": "backend/package.json",
+      "group": "build",
+      "label": "构建后端",
+      "detail": "构建NestJS后端应用"
+    }
+  ]
+}
