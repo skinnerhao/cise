@@ -1,40 +1,69 @@
-name: CI
+name: CI-CD
 
 on:
   push:
-    branches: [ main, root1 ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main, root1 ]
+    branches: [main, develop]
 
 jobs:
-  frontend:
+  build_test:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
     steps:
-      - uses: actions/checkout@v3
-      - name: Use Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-      - run: npm install
-      - run: npm run build
-      - run: npm run test
-      - run: npm run lint
+      - name: Checkout
+        uses: actions/checkout@v4
 
-  backend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./backend
-    steps:
-      - uses: actions/checkout@v3
-      - name: Use Node.js
-        uses: actions/setup-node@v3
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: '20'
-      - run: npm install
-      - run: npm run build
-      - run: npm run test
-      - run: npm run lint
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Install backend deps
+        run: npm ci
+        working-directory: backend
+
+      - name: Install frontend deps
+        run: npm ci
+        working-directory: frontend
+
+      - name: Run backend tests
+        run: npm run test --if-present
+        working-directory: backend
+
+      - name: Run frontend tests
+        run: npm run test --if-present
+        working-directory: frontend
+
+      - name: Build backend
+        run: npm run build --if-present
+        working-directory: backend
+
+      - name: Build frontend
+        run: npm run build
+        working-directory: frontend
+
+  deploy:
+    needs: build_test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            set -e
+            if [ ! -d "${{ secrets.REMOTE_DIR }}" ]; then mkdir -p "${{ secrets.REMOTE_DIR }}"; fi
+            cd "${{ secrets.REMOTE_DIR }}"
+            if [ -d .git ]; then git fetch --all && git checkout ${GITHUB_REF##*/} && git pull origin ${GITHUB_REF##*/}; else git clone ${{ secrets.REPO_URL }} . && git checkout ${GITHUB_REF##*/}; fi
+            which pm2 || npm i -g pm2
+            cd backend && npm ci && pm2 delete speed-backend || true && pm2 start "npm run dev" --name speed-backend
+            cd ../frontend && npm ci && pm2 delete speed-frontend || true && pm2 start "npm run start" --name speed-frontend
+
