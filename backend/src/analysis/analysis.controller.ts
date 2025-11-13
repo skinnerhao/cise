@@ -1,16 +1,19 @@
-import { Controller, Get, Param, Post, Body } from '@nestjs/common'
+import { Controller, Get, Param, Post, Body, UseGuards } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model, Types } from 'mongoose'
 import { Article, ArticleStatus } from '../schemas/article.schema'
 import { Evidence, EvidenceResult } from '../schemas/evidence.schema'
 import { Taxonomy } from '../schemas/taxonomy.schema'
+import { AuthGuard } from '../common/auth.guard'
+import { Roles } from '../common/roles.decorator'
+import { IsEnum, IsString } from 'class-validator'
 
 class EvidenceDto {
-  practice: string
-  claim: string
-  result: EvidenceResult
-  studyType: string
-  participantType: string
+  @IsString() practice: string
+  @IsString() claim: string
+  @IsEnum(EvidenceResult) result: EvidenceResult
+  @IsString() studyType: string
+  @IsString() participantType: string
 }
 
 @Controller('api/analysis')
@@ -22,12 +25,16 @@ export class AnalysisController {
   ) {}
 
   @Get('')
+  @UseGuards(AuthGuard)
+  @Roles('analyst')
   async list() {
     const items = await this.articleModel.find({ status: ArticleStatus.Approved }).lean()
     return { items }
   }
 
   @Get(':id')
+  @UseGuards(AuthGuard)
+  @Roles('analyst')
   async form(@Param('id') id: string) {
     const item = await this.articleModel.findById(id).lean()
     const tax = await this.taxonomyModel.findOne().lean()
@@ -35,6 +42,8 @@ export class AnalysisController {
   }
 
   @Post(':id')
+  @UseGuards(AuthGuard)
+  @Roles('analyst')
   async save(@Param('id') id: string, @Body() body: EvidenceDto) {
     const article = await this.articleModel.findById(id)
     if (!article) return { error: '未找到' }
@@ -45,4 +54,3 @@ export class AnalysisController {
     return { success: true }
   }
 }
-

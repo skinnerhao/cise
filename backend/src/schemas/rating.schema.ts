@@ -16,4 +16,4 @@ export class Rating {
 }
 
 export const RatingSchema = SchemaFactory.createForClass(Rating)
-
+RatingSchema.index({ article: 1, userEmail: 1 }, { unique: true })

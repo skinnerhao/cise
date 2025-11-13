@@ -12,6 +12,8 @@ import { Rating, RatingSchema } from './schemas/rating.schema'
 import { Taxonomy, TaxonomySchema } from './schemas/taxonomy.schema'
 import { SavedQuery, SavedQuerySchema } from './schemas/saved-query.schema'
 import { NotificationService } from './common/notification.service'
+import { User, UserSchema } from './schemas/user.schema'
+import { AuthController } from './auth/auth.controller'
 
 @Module({
   imports: [
@@ -22,10 +24,11 @@ import { NotificationService } from './common/notification.service'
       { name: Evidence.name, schema: EvidenceSchema },
       { name: Rating.name, schema: RatingSchema },
       { name: Taxonomy.name, schema: TaxonomySchema },
-      { name: SavedQuery.name, schema: SavedQuerySchema }
+      { name: SavedQuery.name, schema: SavedQuerySchema },
+      { name: User.name, schema: UserSchema }
     ])
   ],
-  controllers: [SubmissionController, ReviewController, AnalysisController, SearchController, AdminController],
+  controllers: [SubmissionController, ReviewController, AnalysisController, SearchController, AdminController, AuthController],
   providers: [NotificationService]
 })
 export class AppModule {}

@@ -35,7 +35,12 @@ export class Article {
 
   @Prop()
   rejectedReason?: string
+
+  @Prop()
+  proposedPractice?: string
+
+  @Prop()
+  proposedClaim?: string
 }
 
 export const ArticleSchema = SchemaFactory.createForClass(Article)
-

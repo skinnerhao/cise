@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UploadedFile, UseInterceptors } from '@nestjs/common'
+import { Controller, Post, Body, UploadedFile, UseInterceptors, UseGuards } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
 import { Model } from 'mongoose'
 import { Article, ArticleStatus } from '../schemas/article.schema'
@@ -6,14 +6,19 @@ import { FileInterceptor } from '@nestjs/platform-express'
 import { diskStorage } from 'multer'
 import * as BibtexParse from 'bibtex-parse-js'
 import { NotificationService } from '../common/notification.service'
+import { AuthGuard } from '../common/auth.guard'
+import { Roles } from '../common/roles.decorator'
+import { IsEmail, IsNumber, IsOptional, IsString } from 'class-validator'
 
 class SubmitDto {
-  title?: string
-  authors?: string
-  journal?: string
-  year?: number
-  doi?: string
-  submitterEmail?: string
+  @IsOptional() @IsString() title?: string
+  @IsOptional() @IsString() authors?: string
+  @IsOptional() @IsString() journal?: string
+  @IsOptional() @IsNumber() year?: number
+  @IsOptional() @IsString() doi?: string
+  @IsOptional() @IsEmail() submitterEmail?: string
+  @IsOptional() @IsString() practice?: string
+  @IsOptional() @IsString() claim?: string
 }
 
 @Controller('api')
@@ -24,6 +29,8 @@ export class SubmissionController {
   ) {}
 
   @Post('submit')
+  @UseGuards(AuthGuard)
+  @Roles('submitter')
   @UseInterceptors(
     FileInterceptor('bibfile', {
       storage: diskStorage({ destination: './uploads', filename: (_, file, cb) => cb(null, Date.now() + '-' + file.originalname) }),
@@ -43,6 +50,8 @@ export class SubmissionController {
         data.year = Number(e.year || body.year)
         data.doi = e.doi || body.doi
         data.submitterEmail = body.submitterEmail
+        data.proposedPractice = body.practice
+        data.proposedClaim = body.claim
       }
     } else {
       data.title = body.title
@@ -51,6 +60,8 @@ export class SubmissionController {
       data.year = body.year ? Number(body.year) : undefined
       data.doi = body.doi
       data.submitterEmail = body.submitterEmail
+      data.proposedPractice = body.practice
+      data.proposedClaim = body.claim
     }
     if (!data.title) return { error: '缺少标题' }
     const existing = data.doi ? await this.articleModel.findOne({ doi: data.doi }) : null
@@ -62,4 +73,3 @@ export class SubmissionController {
     return { success: true }
   }
 }
-

@@ -9,7 +9,7 @@ dotenv.config({ path: require('path').join(__dirname, '..', '.env') })
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule)
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }))
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true, transformOptions: { enableImplicitConversion: true } }))
   app.enableCors({ origin: true, credentials: true })
   await app.listen(process.env.PORT ? Number(process.env.PORT) : 4000)
 }

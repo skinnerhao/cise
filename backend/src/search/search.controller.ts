@@ -1,23 +1,30 @@
-import { Controller, Get, Post, Query, Body, Param } from '@nestjs/common'
+import { Controller, Get, Post, Query, Body, Param, Req } from '@nestjs/common'
 import { InjectModel } from '@nestjs/mongoose'
-import { Model } from 'mongoose'
+import { Model, Types } from 'mongoose'
 import { Evidence } from '../schemas/evidence.schema'
 import { Article } from '../schemas/article.schema'
 import { Taxonomy } from '../schemas/taxonomy.schema'
 import { Rating } from '../schemas/rating.schema'
 import { SavedQuery } from '../schemas/saved-query.schema'
+import * as jwt from 'jsonwebtoken'
+import { IsEmail, IsIn, IsNumber, IsOptional, IsString } from 'class-validator'
+import { Transform } from 'class-transformer'
 
 class SearchDto {
-  practice?: string
-  claim?: string
-  yearFrom?: number
-  yearTo?: number
-  sort?: string
-  columns?: string
-  userEmail?: string
+  @IsOptional() @IsString() practice?: string
+  @IsOptional() @IsString() claim?: string
+  @IsOptional() @IsNumber() yearFrom?: number
+  @IsOptional() @IsNumber() yearTo?: number
+  @IsOptional() @IsIn(['', 'author', 'year', 'claim', 'result']) sort?: string
+  @IsOptional() @IsString() columns?: string
+  @IsOptional() @IsEmail() userEmail?: string
 }
 
-class RateDto { userEmail: string; stars: number }
+class RateDto {
+  @Transform(({ value }) => (value === '' || value === null ? undefined : value))
+  @IsOptional() @IsEmail() userEmail?: string
+  @IsNumber() stars: number
+}
 
 @Controller('api')
 export class SearchController {
@@ -32,7 +39,9 @@ export class SearchController {
   @Get('taxonomy')
   async taxonomy() {
     const tax = await this.taxonomyModel.findOne().lean()
-    return { practices: tax?.practices || [], claims: tax?.claims || [] }
+    const practices = (tax?.practices || []).filter(Boolean)
+    const claims = (tax?.claims || []).filter(Boolean)
+    return { practices, claims }
   }
 
   @Get('search')
@@ -66,6 +75,12 @@ export class SearchController {
           rating: ratingMap.get(String(art._id)) || 0
         }
       })
+    const unique = new Map<string, any>()
+    for (const r of rows) {
+      const k = String((r as any)._id) + ':' + String((r as any).claim)
+      if (!unique.has(k)) unique.set(k, r)
+    }
+    rows = Array.from(unique.values())
     const sortField = q.sort || ''
     if (sortField) {
       rows.sort((a: any, b: any) => {
@@ -81,10 +96,29 @@ export class SearchController {
   }
 
   @Post('rate/:id')
-  async rate(@Param('id') id: string, @Body() body: RateDto) {
-    if (!body.userEmail) return { error: '需要邮箱' }
-    await this.ratingModel.create({ article: id, userEmail: body.userEmail, stars: Number(body.stars) })
-    return { success: true }
+  async rate(@Param('id') id: string, @Body() body: RateDto, @Req() req: any) {
+    if (!Types.ObjectId.isValid(id)) return { error: '无效ID' }
+    let email = (body.userEmail || '').trim()
+    const auth = (req.headers['authorization'] || '') as string
+    if (auth.startsWith('Bearer ')) {
+      try {
+        const token = auth.slice(7)
+        const payload: any = jwt.verify(token, process.env.JWT_SECRET || 'dev-secret')
+        if (payload?.email) email = String(payload.email)
+      } catch {}
+    }
+    if (!email) email = 'anonymous@local'
+    const stars = Math.max(1, Math.min(5, Number(body.stars)))
+    await this.ratingModel.updateOne(
+      { article: new Types.ObjectId(id), userEmail: email },
+      { $set: { stars } },
+      { upsert: true }
+    )
+    const avg = await this.ratingModel.aggregate([
+      { $match: { article: new Types.ObjectId(id) } },
+      { $group: { _id: '$article', avg: { $avg: '$stars' } } }
+    ])
+    return { success: true, avg: avg[0]?.avg || 0 }
   }
 
   @Post('save-query')
@@ -101,4 +135,3 @@ export class SearchController {
     return { id: art?._id || null }
   }
 }
-

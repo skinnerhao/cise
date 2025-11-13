@@ -10,40 +10,51 @@ export default function Search() {
   const [claim, setClaim] = useState('')
   const [yearFrom, setYearFrom] = useState('')
   const [yearTo, setYearTo] = useState('')
-  useEffect(() => { (async () => { const res = await fetch(`${api}/taxonomy`); const json = await res.json(); setTax(json) })() }, [])
+  const [err, setErr] = useState('')
+  const [msg, setMsg] = useState('')
+  useEffect(() => { (async () => { try { const res = await fetch(`${api}/taxonomy`); const json = await res.json(); setTax(json); setErr(''); await run({ preventDefault: () => {} }) } catch (e: any) { setErr(e?.message || '网络错误') } })() }, [])
   const run = async (e: any) => {
     e.preventDefault()
-    const qs = new URLSearchParams({ practice, claim, yearFrom, yearTo, sort, columns: cols })
-    const res = await fetch(`${api}/search?`+qs.toString())
-    const json = await res.json()
-    setRows(json.rows||[])
+    try {
+      const qs = new URLSearchParams({ practice, claim, yearFrom, yearTo, sort, columns: cols })
+      const res = await fetch(`${api}/search?`+qs.toString())
+      const json = await res.json()
+      setRows(json.rows||[])
+      setErr('')
+      const count = (json.rows||[]).length
+      setMsg(count > 0 ? `已找到 ${count} 条结果` : '未找到结果')
+    } catch (e: any) {
+      setErr(e?.message || '网络错误')
+    }
   }
-  const rate = async (id: string, userEmail: string, stars: number) => {
-    await fetch(`${api}/rate/${id}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userEmail, stars }) })
-    run({ preventDefault: () => {} })
-  }
+  const reset = async () => { setPractice(''); setClaim(''); setYearFrom(''); setYearTo(''); setSort(''); setCols(''); await run({ preventDefault: () => {} }) }
+  const rate = async (id: string, userEmail: string, stars: number) => { try { const payload: any = { stars }; if ((userEmail||'').trim()) payload.userEmail = userEmail; const token = localStorage.getItem('token')||''; const headers: any = { 'Content-Type': 'application/json' }; if (token) headers['Authorization'] = `Bearer ${token}`; const res = await fetch(`${api}/rate/${id}`, { method: 'POST', headers, body: JSON.stringify(payload) }); const json = await res.json(); if (json.error) { setErr(json.error) } else { setErr(''); setMsg(`评分成功，新的平均分：${Number(json.avg||0).toFixed(2)}`) } run({ preventDefault: () => {} }) } catch (e: any) { setErr(e?.message || '网络错误') } }
   const visible = (name: string) => !cols || cols.split(',').includes(name)
   return (
     <div>
+      {err && <div className="alert alert-danger">{err}</div>}
+      {msg && <div className="alert alert-info">{msg}</div>}
       <h4>搜索</h4>
       <form onSubmit={run} className="row gy-2">
         <div className="col-md-4">
           <label className="form-label">SE实践</label>
           <select value={practice} onChange={e=>setPractice(e.target.value)} className="form-select">
+            <option value="">全部</option>
             {tax.practices.map(p => (<option key={p} value={p}>{p}</option>))}
           </select>
         </div>
         <div className="col-md-4">
           <label className="form-label">主张</label>
           <select value={claim} onChange={e=>setClaim(e.target.value)} className="form-select">
-            {tax.claims.map(c => (<option key={c.practice+':'+c.text} value={c.text}>{c.text} ({c.practice})</option>))}
+            <option value="">全部</option>
+            {tax.claims.filter(c => !practice || c.practice === practice).map(c => (<option key={c.practice+':'+c.text} value={c.text}>{c.text} ({c.practice})</option>))}
           </select>
         </div>
         <div className="col-md-2"><label className="form-label">起始年份</label><input value={yearFrom} onChange={e=>setYearFrom(e.target.value)} type="number" className="form-control" /></div>
         <div className="col-md-2"><label className="form-label">结束年份</label><input value={yearTo} onChange={e=>setYearTo(e.target.value)} type="number" className="form-control" /></div>
         <div className="col-md-4"><label className="form-label">排序</label><select value={sort} onChange={e=>setSort(e.target.value)} className="form-select"><option value="">默认</option><option value="author">作者</option><option value="year">年份</option><option value="claim">主张</option><option value="result">证据结果</option></select></div>
         <div className="col-md-8"><label className="form-label">列可见性(逗号分隔)</label><input value={cols} onChange={e=>setCols(e.target.value)} className="form-control" placeholder="title,authors,year,journal,practice,claim,result,studyType,participantType" /></div>
-        <div className="col-12"><button className="btn btn-primary">搜索</button></div>
+        <div className="col-12"><button className="btn btn-primary me-2">搜索</button><button type="button" className="btn btn-outline-secondary" onClick={reset}>重置条件</button></div>
       </form>
       <table className="table table-hover mt-3"><thead><tr>
         {visible('title') && <th>标题</th>}
@@ -72,7 +83,7 @@ export default function Search() {
             <td>{Number(r.rating||0).toFixed(2)}</td>
             <td>
               <form onSubmit={(e:any)=>{e.preventDefault(); rate(r._id, e.target.userEmail.value, Number(e.target.stars.value))}} className="d-flex">
-                <input name="userEmail" type="email" className="form-control form-control-sm me-2" placeholder="您的邮箱" required />
+                <input name="userEmail" type="email" className="form-control form-control-sm me-2" placeholder="可留空" />
                 <select name="stars" className="form-select form-select-sm me-2">{[1,2,3,4,5].map(s=>(<option key={s} value={s}>{s}</option>))}</select>
                 <button className="btn btn-sm btn-outline-primary">提交</button>
               </form>
@@ -83,4 +94,3 @@ export default function Search() {
     </div>
   )
 }
-
