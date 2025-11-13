@@ -1,23 +1,20 @@
-# Dependencies
-node_modules/
-
-# Logs
-npm-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# Build outputs
-backend/dist/
-frontend/.next/
-frontend/out/
-**/*.tsbuildinfo
-
-# Env files (keep examples)
-backend/.env
+node_modules
+.env
+*.env
 frontend/.env.local
 
 # Misc
 .DS_Store
 Thumbs.db
 coverage/
+
+# Backend
+backend/.env
 backend/uploads/
+backend/dist/
+
+# Frontend
+uploads/
+public/
+.next/
+frontend/.next/

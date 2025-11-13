@@ -1,70 +1,45 @@
-import { useEffect, useState } from 'react';
-import Layout from '../components/Layout';
+import { useEffect, useState } from 'react'
+const api = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000/api'
 
-type Submission = { id: string; title: string; authors: string; doi?: string };
-
-export default function ReviewPage() {
-  const [items, setItems] = useState<Submission[]>([]);
-  const api = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const res = await fetch(`${api}/submissions/pending`);
-        const data = await res.json();
-        setItems(data);
-      } catch (err) {
-        // ignore for now
-      }
-    };
-    load();
-  }, [api]);
-
-  const accept = async (id: string) => {
+export default function Review() {
+  const [role, setRole] = useState<string>('')
+  useEffect(() => { setRole(localStorage.getItem('role') || '') }, [])
+  const [items, setItems] = useState<any[]>([])
+  const [actionMsg, setActionMsg] = useState('')
+  const [err, setErr] = useState('')
+  const load = async () => {
     try {
-      await fetch(`${api}/reviews/accept/${id}`, { method: 'POST' });
-      setItems((prev) => prev.filter((x) => x.id !== id));
-    } catch (err) {
-      alert('操作失败');
+      const token = localStorage.getItem('token')||''
+      const res = await fetch(`${api}/review`, { headers: token ? { 'Authorization': `Bearer ${token}` } : undefined as any })
+      const json = await res.json()
+      setItems(json.items || [])
+      setErr('')
+    } catch (e: any) {
+      setErr(e?.message || '网络错误')
     }
-  };
-  const reject = async (id: string) => {
-    try {
-      await fetch(`${api}/reviews/reject/${id}`, { method: 'POST' });
-      setItems((prev) => prev.filter((x) => x.id !== id));
-    } catch (err) {
-      alert('操作失败');
-    }
-  };
-
+  }
+  useEffect(() => { load() }, [])
+  const approve = async (id: string) => { try { const token = localStorage.getItem('token')||''; const res = await fetch(`${api}/review/${id}/approve`, { method: 'POST', headers: token ? { 'Authorization': `Bearer ${token}` } : undefined as any }); const json = await res.json(); setActionMsg(JSON.stringify(json)); setErr(''); load() } catch (e: any) { setErr(e?.message || '网络错误') } }
+  const reject = async (id: string, reason: string) => { try { const token = localStorage.getItem('token')||''; const res = await fetch(`${api}/review/${id}/reject`, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }, body: JSON.stringify({ reason }) }); const json = await res.json(); setActionMsg(JSON.stringify(json)); setErr(''); load() } catch (e: any) { setErr(e?.message || '网络错误') } }
   return (
-    <Layout>
-      <h2>审核文章</h2>
-      <p>审核队列（示例数据）。接受或拒绝提交。</p>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left' }}>标题</th>
-            <th style={{ textAlign: 'left' }}>作者</th>
-            <th style={{ textAlign: 'left' }}>DOI</th>
-            <th>操作</th>
+    <div>
+      {role !== 'reviewer' && <div className="alert alert-warning">需要审核员登录后使用该页面</div>}
+      {err && <div className="alert alert-danger">{err}</div>}
+      <h4>待审核队列</h4>
+      <table className="table table-striped"><thead><tr><th>标题</th><th>作者</th><th>年份</th><th>操作</th></tr></thead><tbody>
+        {items.map(i => (
+          <tr key={i._id}>
+            <td>{i.title}</td>
+            <td>{(i.authors||[]).join(', ')}</td>
+            <td>{i.year||''}</td>
+            <td>
+              <button className="btn btn-sm btn-success me-2" onClick={() => approve(i._id)}>通过</button>
+              <button className="btn btn-sm btn-danger" onClick={() => reject(i._id, prompt('拒绝原因')||'')}>拒绝</button>
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          {items.map((s) => (
-            <tr key={s.id}>
-              <td>{s.title}</td>
-              <td>{s.authors}</td>
-              <td>{s.doi || '-'}</td>
-              <td style={{ textAlign: 'center' }}>
-                <button onClick={() => accept(s.id)} style={{ marginRight: 8 }}>接受</button>
-                <button onClick={() => reject(s.id)}>拒绝</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {items.length === 0 && <p style={{ color: 'green' }}>队列已清空（示例）。</p>}
-    </Layout>
-  );
+        ))}
+      </tbody></table>
+      <pre>{actionMsg}</pre>
+    </div>
+  )
 }

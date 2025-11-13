@@ -1,24 +1,34 @@
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document, Types } from 'mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose'
+import { Document, Types } from 'mongoose'
 
-export type EvidenceDocument = Evidence & Document;
+export type EvidenceDocument = Evidence & Document
+
+export enum EvidenceResult {
+  Support = 'support',
+  Contradict = 'contradict',
+  Neutral = 'neutral'
+}
 
 @Schema({ timestamps: true })
 export class Evidence {
-  @Prop({ type: Types.ObjectId, ref: 'Submission', required: true })
-  submissionId!: Types.ObjectId;
+  @Prop({ type: Types.ObjectId, ref: 'Article', required: true })
+  article: Types.ObjectId
 
   @Prop({ required: true })
-  practice!: string;
+  practice: string
 
   @Prop({ required: true })
-  claim!: string;
+  claim: string
+
+  @Prop({ enum: EvidenceResult, required: true })
+  result: EvidenceResult
 
   @Prop({ required: true })
-  result!: string; // 支持/不支持/混合
+  studyType: string
 
   @Prop({ required: true })
-  studyType!: string;
+  participantType: string
 }
 
-export const EvidenceSchema = SchemaFactory.createForClass(Evidence);
+export const EvidenceSchema = SchemaFactory.createForClass(Evidence)
+

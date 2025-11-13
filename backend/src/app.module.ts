@@ -1,22 +1,34 @@
-import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { MongooseModule } from '@nestjs/mongoose';
-import { SubmissionsModule } from './submissions/submissions.module';
-import { ReviewsModule } from './reviews/reviews.module';
-import { AnalysisModule } from './analysis/analysis.module';
-import { EvidenceModule } from './evidence/evidence.module';
-import { SearchModule } from './search/search.module';
+import { Module } from '@nestjs/common'
+import { MongooseModule } from '@nestjs/mongoose'
+import { ConfigModule } from '@nestjs/config'
+import { SubmissionController } from './submissions/submissions.controller'
+import { ReviewController } from './reviews/reviews.controller'
+import { AnalysisController } from './analysis/analysis.controller'
+import { SearchController } from './search/search.controller'
+import { AdminController } from './common/admin.controller'
+import { Article, ArticleSchema } from './schemas/article.schema'
+import { Evidence, EvidenceSchema } from './schemas/evidence.schema'
+import { Rating, RatingSchema } from './schemas/rating.schema'
+import { Taxonomy, TaxonomySchema } from './schemas/taxonomy.schema'
+import { SavedQuery, SavedQuerySchema } from './schemas/saved-query.schema'
+import { NotificationService } from './common/notification.service'
+import { User, UserSchema } from './schemas/user.schema'
+import { AuthController } from './auth/auth.controller'
 
 @Module({
   imports: [
-    // 默认优先使用 IPv4 避免 ::1 解析导致连接问题
-    MongooseModule.forRoot(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/speed'),
-    SubmissionsModule,
-    ReviewsModule,
-    AnalysisModule,
-    EvidenceModule,
-    SearchModule,
+    ConfigModule.forRoot({ isGlobal: true }),
+    MongooseModule.forRoot(process.env.MONGODB_URI as string),
+    MongooseModule.forFeature([
+      { name: Article.name, schema: ArticleSchema },
+      { name: Evidence.name, schema: EvidenceSchema },
+      { name: Rating.name, schema: RatingSchema },
+      { name: Taxonomy.name, schema: TaxonomySchema },
+      { name: SavedQuery.name, schema: SavedQuerySchema },
+      { name: User.name, schema: UserSchema }
+    ])
   ],
-  controllers: [AppController],
+  controllers: [SubmissionController, ReviewController, AnalysisController, SearchController, AdminController, AuthController],
+  providers: [NotificationService]
 })
 export class AppModule {}

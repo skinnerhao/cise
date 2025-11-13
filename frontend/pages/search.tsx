@@ -1,59 +1,96 @@
-import { useEffect, useMemo, useState } from 'react';
-import Layout from '../components/Layout';
+import { useEffect, useState } from 'react'
+const api = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000/api'
 
-type Evidence = { id: string; practice: string; claim: string; conclusion: '支持' | '不支持' | '混合'; source: string };
-
-export default function SearchPage() {
-  const [practice, setPractice] = useState('');
-  const [claim, setClaim] = useState('');
-  const [results, setResults] = useState<Evidence[]>([]);
-  const api = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
-
-  useEffect(() => {
-    const load = async () => {
-      const qs = new URLSearchParams();
-      if (practice) qs.set('practice', practice);
-      if (claim) qs.set('claim', claim);
-      try {
-        const res = await fetch(`${api}/search/evidence?${qs.toString()}`);
-        const data = await res.json();
-        setResults(data);
-      } catch (err) {
-        setResults([]);
-      }
-    };
-    load();
-  }, [api, practice, claim]);
-
+export default function Search() {
+  const [tax, setTax] = useState<{practices:string[];claims:{practice:string;text:string}[]}>({ practices: [], claims: [] })
+  const [rows, setRows] = useState<any[]>([])
+  const [cols, setCols] = useState<string>('')
+  const [sort, setSort] = useState('')
+  const [practice, setPractice] = useState('')
+  const [claim, setClaim] = useState('')
+  const [yearFrom, setYearFrom] = useState('')
+  const [yearTo, setYearTo] = useState('')
+  const [err, setErr] = useState('')
+  const [msg, setMsg] = useState('')
+  useEffect(() => { (async () => { try { const res = await fetch(`${api}/taxonomy`); const json = await res.json(); setTax(json); setErr(''); await run({ preventDefault: () => {} }) } catch (e: any) { setErr(e?.message || '网络错误') } })() }, [])
+  const run = async (e: any) => {
+    e.preventDefault()
+    try {
+      const qs = new URLSearchParams({ practice, claim, yearFrom, yearTo, sort, columns: cols })
+      const res = await fetch(`${api}/search?`+qs.toString())
+      const json = await res.json()
+      setRows(json.rows||[])
+      setErr('')
+      const count = (json.rows||[]).length
+      setMsg(count > 0 ? `已找到 ${count} 条结果` : '未找到结果')
+    } catch (e: any) {
+      setErr(e?.message || '网络错误')
+    }
+  }
+  const reset = async () => { setPractice(''); setClaim(''); setYearFrom(''); setYearTo(''); setSort(''); setCols(''); await run({ preventDefault: () => {} }) }
+  const rate = async (id: string, userEmail: string, stars: number) => { try { const payload: any = { stars }; if ((userEmail||'').trim()) payload.userEmail = userEmail; const token = localStorage.getItem('token')||''; const headers: any = { 'Content-Type': 'application/json' }; if (token) headers['Authorization'] = `Bearer ${token}`; const res = await fetch(`${api}/rate/${id}`, { method: 'POST', headers, body: JSON.stringify(payload) }); const json = await res.json(); if (json.error) { setErr(json.error) } else { setErr(''); setMsg(`评分成功，新的平均分：${Number(json.avg||0).toFixed(2)}`) } run({ preventDefault: () => {} }) } catch (e: any) { setErr(e?.message || '网络错误') } }
+  const visible = (name: string) => !cols || cols.split(',').includes(name)
   return (
-    <Layout>
-      <h2>搜索证据</h2>
-      <p>输入软件实践与主张进行筛选，结果可排序、可过滤（示例数据）。</p>
-      <div style={{ display: 'flex', gap: 12, marginBottom: 12 }}>
-        <input placeholder="实践（如：TDD）" value={practice} onChange={(e) => setPractice(e.target.value)} />
-        <input placeholder="主张（如：提高代码质量）" value={claim} onChange={(e) => setClaim(e.target.value)} />
-      </div>
-      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-        <thead>
-          <tr>
-            <th style={{ textAlign: 'left' }}>实践</th>
-            <th style={{ textAlign: 'left' }}>主张</th>
-            <th style={{ textAlign: 'left' }}>结论</th>
-            <th style={{ textAlign: 'left' }}>来源</th>
+    <div>
+      {err && <div className="alert alert-danger">{err}</div>}
+      {msg && <div className="alert alert-info">{msg}</div>}
+      <h4>搜索</h4>
+      <form onSubmit={run} className="row gy-2">
+        <div className="col-md-4">
+          <label className="form-label">SE实践</label>
+          <select value={practice} onChange={e=>setPractice(e.target.value)} className="form-select">
+            <option value="">全部</option>
+            {tax.practices.map(p => (<option key={p} value={p}>{p}</option>))}
+          </select>
+        </div>
+        <div className="col-md-4">
+          <label className="form-label">主张</label>
+          <select value={claim} onChange={e=>setClaim(e.target.value)} className="form-select">
+            <option value="">全部</option>
+            {tax.claims.filter(c => !practice || c.practice === practice).map(c => (<option key={c.practice+':'+c.text} value={c.text}>{c.text} ({c.practice})</option>))}
+          </select>
+        </div>
+        <div className="col-md-2"><label className="form-label">起始年份</label><input value={yearFrom} onChange={e=>setYearFrom(e.target.value)} type="number" className="form-control" /></div>
+        <div className="col-md-2"><label className="form-label">结束年份</label><input value={yearTo} onChange={e=>setYearTo(e.target.value)} type="number" className="form-control" /></div>
+        <div className="col-md-4"><label className="form-label">排序</label><select value={sort} onChange={e=>setSort(e.target.value)} className="form-select"><option value="">默认</option><option value="author">作者</option><option value="year">年份</option><option value="claim">主张</option><option value="result">证据结果</option></select></div>
+        <div className="col-md-8"><label className="form-label">列可见性(逗号分隔)</label><input value={cols} onChange={e=>setCols(e.target.value)} className="form-control" placeholder="title,authors,year,journal,practice,claim,result,studyType,participantType" /></div>
+        <div className="col-12"><button className="btn btn-primary me-2">搜索</button><button type="button" className="btn btn-outline-secondary" onClick={reset}>重置条件</button></div>
+      </form>
+      <table className="table table-hover mt-3"><thead><tr>
+        {visible('title') && <th>标题</th>}
+        {visible('authors') && <th>作者</th>}
+        {visible('year') && <th>出版年份</th>}
+        {visible('journal') && <th>期刊/会议</th>}
+        {visible('practice') && <th>SE实践</th>}
+        {visible('claim') && <th>主张</th>}
+        {visible('result') && <th>证据结果</th>}
+        {visible('studyType') && <th>研究类型</th>}
+        {visible('participantType') && <th>参与者类型</th>}
+        <th>平均评分</th>
+        <th>评分</th>
+      </tr></thead><tbody>
+        {rows.map((r: any) => (
+          <tr key={r._id}>
+            {visible('title') && <td>{r.title}</td>}
+            {visible('authors') && <td>{(r.authors||[]).join(', ')}</td>}
+            {visible('year') && <td>{r.year||''}</td>}
+            {visible('journal') && <td>{r.journal||''}</td>}
+            {visible('practice') && <td>{r.practice||''}</td>}
+            {visible('claim') && <td>{r.claim||''}</td>}
+            {visible('result') && <td>{r.result||''}</td>}
+            {visible('studyType') && <td>{r.studyType||''}</td>}
+            {visible('participantType') && <td>{r.participantType||''}</td>}
+            <td>{Number(r.rating||0).toFixed(2)}</td>
+            <td>
+              <form onSubmit={(e:any)=>{e.preventDefault(); rate(r._id, e.target.userEmail.value, Number(e.target.stars.value))}} className="d-flex">
+                <input name="userEmail" type="email" className="form-control form-control-sm me-2" placeholder="可留空" />
+                <select name="stars" className="form-select form-select-sm me-2">{[1,2,3,4,5].map(s=>(<option key={s} value={s}>{s}</option>))}</select>
+                <button className="btn btn-sm btn-outline-primary">提交</button>
+              </form>
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          {results.map((e) => (
-            <tr key={e.id}>
-              <td>{e.practice}</td>
-              <td>{e.claim}</td>
-              <td>{e.conclusion}</td>
-              <td>{e.source}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {results.length === 0 && <p>未找到匹配结果。</p>}
-    </Layout>
-  );
+        ))}
+      </tbody></table>
+    </div>
+  )
 }
